@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Audiobook Reader</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c0521a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Audiobook">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1a1a18;--ink2:#5a5a54;--ink3:#9a9a90;
+  --paper:#faf9f5;--paper2:#f2f1eb;--paper3:#e8e6de;
+  --accent:#c0521a;--accent2:#e8c89a;
+}
+.dark{
+  --ink:#e8e6de;--ink2:#b4b29e;--ink3:#7a7a6e;
+  --paper:#1a1916;--paper2:#22211e;--paper3:#2e2d29;
+  --accent:#d4703a;--accent2:#5a3a1a;
+}
+html,body{height:100%;background:var(--paper);overflow:hidden}
+body{font-family:'Literata',Georgia,serif;color:var(--ink);transition:background .25s,color .25s}
+#app{height:100%;display:flex;flex-direction:column;background:var(--paper);transition:background .25s;position:relative}
+
+/* ── DROP SCREEN ── */
+#drop-screen{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:2rem;position:relative;
+}
+.drop-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border:2px dashed var(--paper3);border-radius:20px;
+  padding:3rem 2rem;cursor:pointer;
+  background:var(--paper2);width:100%;max-width:420px;
+  transition:border-color .2s,background .2s;
+}
+.drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:var(--paper3)}
+.drop-icon{font-size:52px;margin-bottom:1rem;opacity:.4;color:var(--accent)}
+.drop-title{font-size:1.3rem;font-weight:300;margin-bottom:.4rem}
+.drop-sub{font-size:.8rem;color:var(--ink3);font-family:'DM Mono',monospace}
+#file-input{display:none}
+.drop-theme-btn{
+  position:absolute;top:1rem;right:1rem;
+  background:var(--paper2);border:1px solid var(--paper3);
+  border-radius:50%;width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--ink2);transition:border-color .15s;
+}
+.drop-theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── PLAYER ── */
+#player{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
+
+/* Header */
+.book-header{
+  background:var(--paper2);border-bottom:1px solid var(--paper3);
+  padding:.65rem 1rem;
+  display:flex;align-items:center;gap:.6rem;
+  flex-shrink:0;
+}
+.book-cover{
+  width:32px;height:42px;background:var(--accent);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;color:#fff;font-size:14px;
+}
+.book-meta{flex:1;min-width:0}
+.book-title{font-size:.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.book-pages{font-size:.65rem;color:var(--ink3);font-family:'DM Mono',monospace}
+.hdr-btn{
+  background:none;border:1px solid var(--paper3);border-radius:8px;
+  width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--ink2);font-size:16px;flex-shrink:0;
+  transition:border-color .15s,color .15s;
+}
+.hdr-btn:hover,.hdr-btn:active{border-color:var(--accent);color:var(--accent)}
+.hdr-btn.bookmarked{color:var(--accent);border-color:var(--accent)}
+
+/* Resume banner */
+.resume-banner{
+  background:var(--paper2);border-bottom:1px solid var(--accent2);
+  padding:.55rem 1rem;display:flex;align-items:center;gap:.5rem;
+  font-size:.78rem;color:var(--ink2);flex-shrink:0;
+}
+.resume-banner i{color:var(--accent);font-size:15px}
+.resume-btn{
+  margin-left:auto;background:var(--accent);color:#fff;border:none;
+  border-radius:6px;padding:.25rem .7rem;font-size:.72rem;
+  font-family:'DM Mono',monospace;cursor:pointer;white-space:nowrap;
+}
+
+/* Text area */
+.text-area{flex:1;overflow-y:auto;padding:1.2rem 1.25rem 0;-webkit-overflow-scrolling:touch}
+.page-text{
+  font-size:1rem;line-height:1.85;color:var(--ink2);
+  font-weight:300;white-space:pre-wrap;
+  padding-bottom:2rem;max-width:660px;margin:0 auto;
+}
+.highlight{background:#fde8c8;color:var(--ink);border-radius:3px}
+.dark .highlight{background:#5a3a1a;color:var(--ink)}
+
+/* Controls */
+.controls{
+  border-top:1px solid var(--paper3);
+  padding:.7rem 1rem .8rem;
+  background:var(--paper);flex-shrink:0;
+  padding-bottom:max(.8rem, env(safe-area-inset-bottom));
+}
+.progress-row{display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem}
+.time-label{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--ink3);min-width:38px;flex-shrink:0}
+.time-label.right{text-align:right}
+.progress-bar{
+  flex:1;height:5px;background:var(--paper3);border-radius:3px;
+  cursor:pointer;position:relative;touch-action:none;
+}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;pointer-events:none}
+
+/* Main playback row */
+.btn-row{display:flex;align-items:center;justify-content:center;gap:.6rem}
+.ctrl-btn{
+  background:none;border:1px solid var(--paper3);border-radius:50%;
+  width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--ink2);flex-shrink:0;
+  transition:border-color .15s,color .15s;-webkit-tap-highlight-color:transparent;
+}
+.ctrl-btn:active{border-color:var(--accent);color:var(--accent)}
+.ctrl-btn i{font-size:18px}
+.ctrl-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;width:56px;height:56px}
+.ctrl-btn.primary i{font-size:24px}
+.ctrl-btn.primary:active{opacity:.85}
+.speed-btn{
+  background:none;border:1px solid var(--paper3);border-radius:14px;
+  padding:.22rem .6rem;font-family:'DM Mono',monospace;font-size:.72rem;
+  color:var(--ink2);cursor:pointer;flex-shrink:0;
+}
+.speed-btn:active{border-color:var(--accent);color:var(--accent)}
+
+/* Bottom toolbar: chapters + voice + page nav */
+.bottom-bar{
+  display:flex;align-items:center;gap:.5rem;margin-top:.55rem;flex-wrap:nowrap;
+}
+.chapters-btn{
+  display:flex;align-items:center;gap:.35rem;
+  background:none;border:1px solid var(--paper3);border-radius:8px;
+  padding:.3rem .65rem;font-family:'DM Mono',monospace;font-size:.72rem;
+  color:var(--ink2);cursor:pointer;flex-shrink:0;white-space:nowrap;
+  transition:border-color .15s,color .15s;
+}
+.chapters-btn:active,.chapters-btn:hover{border-color:var(--accent);color:var(--accent)}
+.chapters-btn i{font-size:14px}
+.voice-select{
+  flex:1;min-width:0;background:var(--paper2);border:1px solid var(--paper3);
+  border-radius:8px;padding:.28rem .4rem;font-family:'DM Mono',monospace;
+  font-size:.7rem;color:var(--ink2);cursor:pointer;
+}
+.page-nav{display:flex;align-items:center;gap:.3rem;flex-shrink:0}
+.page-nav button{
+  background:none;border:1px solid var(--paper3);border-radius:5px;
+  padding:.2rem .4rem;cursor:pointer;color:var(--ink2);font-size:.75rem;
+  line-height:1;
+}
+.page-nav button:active{border-color:var(--accent)}
+.page-nav input{
+  width:36px;border:1px solid var(--paper3);border-radius:5px;
+  text-align:center;padding:.2rem .1rem;font-family:'DM Mono',monospace;
+  font-size:.7rem;background:var(--paper2);color:var(--ink);
+}
+
+/* ── SIDEBAR SHEET ── */
+.sheet-backdrop{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,0.5);z-index:100;
+  opacity:0;transition:opacity .25s;
+}
+.sheet-backdrop.open{display:block;opacity:1}
+.sidebar-sheet{
+  position:fixed;z-index:101;
+  background:var(--paper2);
+  transition:transform .3s cubic-bezier(.32,.72,0,1);
+}
+
+/* DESKTOP: left panel */
+@media(min-width:701px){
+  #player{flex-direction:row}
+  .sidebar-sheet{
+    top:0;left:0;bottom:0;width:260px;
+    transform:translateX(0);
+    border-right:1px solid var(--paper3);
+  }
+  .sidebar-sheet.closed{transform:translateX(-100%)}
+  .sheet-backdrop{display:none !important}
+  /* On desktop, chapters-btn toggles panel */
+  .chapters-btn{display:flex}
+  /* main content on desktop shifts right when sidebar open - handled by JS */
+  #player-main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+}
+
+/* MOBILE: bottom sheet */
+@media(max-width:700px){
+  .sidebar-sheet{
+    left:0;right:0;bottom:0;
+    max-height:75vh;border-radius:16px 16px 0 0;
+    transform:translateY(100%);
+    display:flex;flex-direction:column;
+  }
+  .sidebar-sheet.open{transform:translateY(0)}
+  .sheet-handle{
+    width:36px;height:4px;background:var(--paper3);
+    border-radius:2px;margin:.75rem auto .5rem;flex-shrink:0;
+  }
+  /* On mobile player is always column */
+  #player{flex-direction:column}
+  #player-main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+}
+
+.sidebar-inner{display:flex;flex-direction:column;height:100%;overflow:hidden}
+.sidebar-header{
+  padding:.7rem 1rem;border-bottom:1px solid var(--paper3);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.sidebar-title{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.sidebar-tabs{display:flex;gap:.25rem}
+.stab{background:none;border:none;border-radius:6px;padding:.25rem .55rem;font-family:'DM Mono',monospace;font-size:.7rem;cursor:pointer;color:var(--ink3)}
+.stab.active{background:var(--accent);color:#fff}
+.sidebar-close{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:18px;padding:2px;display:none}
+@media(max-width:700px){.sidebar-close{display:flex;align-items:center}}
+.sidebar-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.chapter-item{
+  display:flex;align-items:flex-start;gap:.5rem;padding:.55rem 1rem;
+  cursor:pointer;border-left:2px solid transparent;
+  transition:background .15s,border-color .15s;color:var(--ink2);line-height:1.4;
+}
+.chapter-item:active,.chapter-item:hover{background:var(--paper3)}
+.chapter-item.active{border-left-color:var(--accent);color:var(--ink);background:var(--paper3)}
+.chapter-num{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--ink3);min-width:24px;padding-top:1px;flex-shrink:0}
+.chapter-name{font-size:.82rem}
+.bm-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;cursor:pointer;transition:background .15s}
+.bm-item:active{background:var(--paper3)}
+.bm-del{background:none;border:none;cursor:pointer;color:var(--ink3);font-size:14px;margin-left:auto;padding:4px;border-radius:4px;flex-shrink:0}
+.bm-empty{padding:1.5rem 1rem;text-align:center;font-size:.8rem;color:var(--ink3);font-style:italic;line-height:1.6}
+
+/* Loading */
+.loading-overlay{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200}
+.loading-bar{width:180px;height:3px;background:var(--paper3);border-radius:2px;overflow:hidden;margin-top:1rem}
+.loading-fill{height:100%;background:var(--accent);animation:ld 1.5s ease-in-out infinite}
+@keyframes ld{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+.load-text{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--ink3);margin-top:.6rem}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- DROP SCREEN -->
+  <div id="drop-screen">
+    <button class="drop-theme-btn" id="theme-btn-drop" aria-label="Toggle dark mode">
+      <i class="ti ti-moon" id="theme-icon-drop" aria-hidden="true"></i>
+    </button>
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon"><i class="ti ti-book-2" aria-hidden="true"></i></div>
+      <div class="drop-title">Drop your PDF here</div>
+      <div class="drop-sub">or tap to browse</div>
+      <input type="file" id="file-input" accept=".pdf">
+    </div>
+  </div>
+
+  <!-- PLAYER -->
+  <div id="player">
+
+    <!-- SIDEBAR SHEET (desktop: left panel / mobile: bottom sheet) -->
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
+    <div class="sidebar-sheet" id="sidebar-sheet">
+      <div class="sheet-handle" id="sheet-handle"></div>
+      <div class="sidebar-inner">
+        <div class="sidebar-header">
+          <span class="sidebar-title" id="sidebar-label">Chapters</span>
+          <div style="display:flex;align-items:center;gap:.4rem">
+            <div class="sidebar-tabs">
+              <button class="stab active" id="tab-ch" onclick="switchTab('ch')">Ch.</button>
+              <button class="stab" id="tab-bm" onclick="switchTab('bm')">BM</button>
+            </div>
+            <button class="sidebar-close" id="sidebar-close" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div class="sidebar-body" id="chapters-panel"></div>
+        <div class="sidebar-body" id="bookmarks-panel" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div id="player-main">
+      <!-- Header -->
+      <div class="book-header">
+        <div class="book-cover"><i class="ti ti-book" aria-hidden="true"></i></div>
+        <div class="book-meta">
+          <div class="book-title" id="book-title">Book</div>
+          <div class="book-pages" id="book-pages">—</div>
+        </div>
+        <button class="hdr-btn" id="bookmark-btn" title="Bookmark"><i class="ti ti-bookmark" aria-hidden="true"></i></button>
+        <button class="hdr-btn" id="theme-btn-player" aria-label="Dark mode"><i class="ti ti-moon" id="theme-icon-player" aria-hidden="true"></i></button>
+        <button class="hdr-btn" id="new-book-btn" title="New book"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+      </div>
+
+      <!-- Resume -->
+      <div class="resume-banner" id="resume-banner" style="display:none">
+        <i class="ti ti-clock" aria-hidden="true"></i>
+        <span id="resume-text">Resume</span>
+        <button class="resume-btn" id="resume-btn">Resume</button>
+      </div>
+
+      <!-- Text -->
+      <div class="text-area" id="text-area">
+        <div class="page-text" id="page-text"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <!-- Progress -->
+        <div class="progress-row">
+          <span class="time-label" id="time-current">0:00</span>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+          </div>
+          <span class="time-label right" id="time-total">0:00</span>
+        </div>
+        <!-- Playback -->
+        <div class="btn-row">
+          <button class="ctrl-btn" id="skip-back-btn" aria-label="Back 15s"><i class="ti ti-rotate-clockwise-2" style="transform:scaleX(-1)" aria-hidden="true"></i></button>
+          <button class="ctrl-btn primary" id="play-btn" aria-label="Play"><i class="ti ti-player-play" id="play-icon" aria-hidden="true"></i></button>
+          <button class="ctrl-btn" id="skip-fwd-btn" aria-label="Forward 15s"><i class="ti ti-rotate-clockwise-2" aria-hidden="true"></i></button>
+          <button class="speed-btn" id="speed-btn">1×</button>
+        </div>
+        <!-- Bottom bar: chapters + voice + page nav -->
+        <div class="bottom-bar">
+          <button class="chapters-btn" id="chapters-btn">
+            <i class="ti ti-layout-list" aria-hidden="true"></i>
+            Chapters
+          </button>
+          <select class="voice-select" id="voice-select"><option>Loading…</option></select>
+          <div class="page-nav">
+            <button id="prev-page">‹</button>
+            <input type="number" id="page-input" value="1" min="1">
+            <button id="next-page">›</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-overlay" id="loading-overlay" style="display:none">
+    <i class="ti ti-book-2" style="font-size:44px;color:var(--accent);opacity:.5" aria-hidden="true"></i>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+    <div class="load-text" id="load-text">Parsing…</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+const STORAGE_KEY = 'audiobook_v2';
+const BM_KEY = 'audiobook_bookmarks_v2';
+
+let pages=[], chapters=[], currentPage=0, totalChars=0, charsPerPage=[];
+let synth=window.speechSynthesis, utter=null, voices=[];
+let isPlaying=false, isPaused=false, charOffset=0, speed=1;
+let selectedVoice=null, bookName='', isDark=false;
+let uttStartChar=0, bookmarks={};
+let sidebarOpen=false;
+
+const $=id=>document.getElementById(id);
+const isMobile=()=>window.innerWidth<=700;
+
+/* ── THEME ── */
+function applyTheme(dark){
+  isDark=dark;
+  document.getElementById('app').classList.toggle('dark',dark);
+  const icon=dark?'ti ti-sun':'ti ti-moon';
+  $('theme-icon-drop').className=icon;
+  $('theme-icon-player').className=icon;
+  localStorage.setItem('ab_theme',dark?'dark':'light');
+}
+$('theme-btn-drop').addEventListener('click',()=>applyTheme(!isDark));
+$('theme-btn-player').addEventListener('click',()=>applyTheme(!isDark));
+if(localStorage.getItem('ab_theme')==='dark') applyTheme(true);
+
+/* ── SIDEBAR ── */
+function openSidebar(){
+  sidebarOpen=true;
+  $('sidebar-sheet').classList.add('open');
+  $('sheet-backdrop').classList.add('open');
+  if(!isMobile()) $('sidebar-sheet').classList.remove('closed');
+}
+function closeSidebar(){
+  sidebarOpen=false;
+  $('sidebar-sheet').classList.remove('open');
+  $('sheet-backdrop').classList.remove('open');
+  if(!isMobile()) $('sidebar-sheet').classList.add('closed');
+}
+function toggleSidebar(){ sidebarOpen?closeSidebar():openSidebar(); }
+$('chapters-btn').addEventListener('click',toggleSidebar);
+$('sidebar-close').addEventListener('click',closeSidebar);
+$('sheet-backdrop').addEventListener('click',closeSidebar);
+
+// Init sidebar state
+if(!isMobile()){
+  // desktop: start open
+  openSidebar();
+} else {
+  // mobile: start closed
+  $('sidebar-sheet').classList.remove('open');
+}
+
+function switchTab(tab){
+  $('chapters-panel').style.display=tab==='ch'?'block':'none';
+  $('bookmarks-panel').style.display=tab==='bm'?'block':'none';
+  $('tab-ch').classList.toggle('active',tab==='ch');
+  $('tab-bm').classList.toggle('active',tab==='bm');
+  $('sidebar-label').textContent=tab==='ch'?'Chapters':'Bookmarks';
+}
+
+/* ── VOICES ── */
+function loadVoices(){
+  let all=synth.getVoices();
+  let pref=all.filter(v=>v.lang.startsWith('en')||v.lang.startsWith('pt')||v.lang.startsWith('es'));
+  voices=pref.length?pref:all;
+  const sel=$('voice-select');
+  sel.innerHTML='';
+  voices.forEach((v,i)=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=v.name+' ('+v.lang+')';
+    sel.appendChild(o);
+  });
+  if(selectedVoice){
+    const idx=voices.findIndex(v=>v.name===selectedVoice.name);
+    if(idx>=0) sel.value=idx;
+  }
+}
+synth.onvoiceschanged=loadVoices; loadVoices();
+$('voice-select').addEventListener('change',e=>{
+  selectedVoice=voices[+e.target.value]||null;
+  if(isPlaying) restartFromCurrentChar();
+});
+
+/* ── FILE DROP ── */
+$('drop-zone').addEventListener('click',()=>$('file-input').click());
+$('drop-zone').addEventListener('dragover',e=>{e.preventDefault();$('drop-zone').classList.add('over')});
+$('drop-zone').addEventListener('dragleave',()=>$('drop-zone').classList.remove('over'));
+$('drop-zone').addEventListener('drop',e=>{e.preventDefault();$('drop-zone').classList.remove('over');handleFile(e.dataTransfer.files[0])});
+$('file-input').addEventListener('change',e=>handleFile(e.target.files[0]));
+$('new-book-btn').addEventListener('click',()=>{stopSpeech();location.reload()});
+
+/* ── PARSE PDF ── */
+async function handleFile(file){
+  if(!file||!file.name.endsWith('.pdf')) return;
+  bookName=file.name.replace('.pdf','');
+  bookmarks=JSON.parse(localStorage.getItem(BM_KEY+'_'+bookName)||'{}');
+  $('loading-overlay').style.display='flex';
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  pages=[];charsPerPage=[];chapters=[];totalChars=0;
+  for(let i=1;i<=pdf.numPages;i++){
+    $('load-text').textContent='Page '+i+' of '+pdf.numPages+'…';
+    const pg=await pdf.getPage(i);
+    const tc=await pg.getTextContent();
+    let txt='',prevY=null;
+    tc.items.forEach(it=>{
+      if(prevY!==null&&Math.abs(it.transform[5]-prevY)>15) txt+='\n';
+      txt+=it.str;
+      if(it.str.trim()) prevY=it.transform[5];
+    });
+    txt=txt.replace(/[ \t]{2,}/g,' ').trim();
+    pages.push(txt);charsPerPage.push(txt.length);totalChars+=txt.length;
+    detectChapter(txt,i-1);
+  }
+  if(!chapters.length) chapters=[{name:'Beginning',page:0}];
+  $('loading-overlay').style.display='none';
+  $('book-title').textContent=bookName;
+  $('book-pages').textContent=pdf.numPages+' pages';
+  $('page-input').max=pdf.numPages;
+  $('drop-screen').style.display='none';
+  $('player').style.display='flex';
+  currentPage=0;charOffset=0;
+  renderPage();renderChapters();renderBookmarks();checkResume();
+}
+
+function detectChapter(txt,pageIdx){
+  const lines=txt.split('\n').slice(0,4);
+  for(const line of lines){
+    const t=line.trim();
+    if(!t) continue;
+    if(/^(chapter|part|section|prologue|epilogue|introduction|preface|appendix)\b/i.test(t)||/^(ch\.?\s*\d+|\d+\.\s+[A-Z])/i.test(t)){
+      if(t.length<80){chapters.push({name:t,page:pageIdx});return;}
+    }
+    if(t.length<60&&t===t.toUpperCase()&&t.replace(/\s/g,'').length>3){
+      chapters.push({name:t.charAt(0)+t.slice(1).toLowerCase(),page:pageIdx});return;
+    }
+  }
+}
+
+/* ── CHAPTERS ── */
+function renderChapters(){
+  const panel=$('chapters-panel');panel.innerHTML='';
+  if(!chapters.length){panel.innerHTML='<div class="bm-empty">No chapters detected</div>';return;}
+  chapters.forEach((ch,i)=>{
+    const isActive=currentPage>=ch.page&&(i===chapters.length-1||currentPage<chapters[i+1].page);
+    const d=document.createElement('div');
+    d.className='chapter-item'+(isActive?' active':'');
+    d.innerHTML='<span class="chapter-num">'+(i+1)+'</span><span class="chapter-name">'+escH(ch.name)+'</span>';
+    d.addEventListener('click',()=>{
+      currentPage=ch.page;charOffset=0;
+      renderPage();renderChapters();
+      if(isPlaying) restartFromCurrentChar();
+      if(isMobile()) closeSidebar();
+    });
+    panel.appendChild(d);
+  });
+}
+
+/* ── BOOKMARKS ── */
+function renderBookmarks(){
+  const panel=$('bookmarks-panel');panel.innerHTML='';
+  const keys=Object.keys(bookmarks);
+  if(!keys.length){panel.innerHTML='<div class="bm-empty">No bookmarks yet.<br>Tap the ribbon icon while reading.</div>';return;}
+  keys.sort((a,b)=>+a-+b).forEach(pg=>{
+    const bm=bookmarks[pg];
+    const d=document.createElement('div');d.className='bm-item';
+    d.innerHTML='<i class="ti ti-bookmark" style="color:var(--accent);font-size:14px;flex-shrink:0" aria-hidden="true"></i>'+
+      '<span style="flex:1;font-size:.82rem;color:var(--ink2)">Page '+(+pg+1)+(bm.label?' — '+escH(bm.label.slice(0,35))+'…':'')+'</span>'+
+      '<button class="bm-del" title="Remove"><i class="ti ti-x" aria-hidden="true"></i></button>';
+    d.addEventListener('click',e=>{
+      if(e.target.closest('.bm-del')){delete bookmarks[pg];saveBookmarks();renderBookmarks();return;}
+      currentPage=+pg;charOffset=0;renderPage();renderChapters();
+      if(isPlaying) restartFromCurrentChar();
+      if(isMobile()) closeSidebar();
+    });
+    panel.appendChild(d);
+  });
+}
+function saveBookmarks(){localStorage.setItem(BM_KEY+'_'+bookName,JSON.stringify(bookmarks));}
+
+$('bookmark-btn').addEventListener('click',()=>{
+  const pg=String(currentPage);
+  const btn=$('bookmark-btn');
+  if(bookmarks[pg]){delete bookmarks[pg];btn.classList.remove('bookmarked');}
+  else{bookmarks[pg]={label:(pages[currentPage]||'').slice(0,40).trim()};btn.classList.add('bookmarked');}
+  saveBookmarks();renderBookmarks();
+});
+function updateBookmarkBtn(){$('bookmark-btn').classList.toggle('bookmarked',!!bookmarks[String(currentPage)]);}
+
+/* ── RESUME ── */
+function checkResume(){
+  const saved=localStorage.getItem(STORAGE_KEY);
+  if(!saved) return;
+  const data=JSON.parse(saved);
+  if(data.book!==bookName) return;
+  const pct=Math.round((data.page/Math.max(pages.length-1,1))*100);
+  $('resume-text').textContent='Resume from page '+(data.page+1)+' ('+pct+'% through)';
+  $('resume-banner').style.display='flex';
+  $('resume-btn').onclick=()=>{
+    $('resume-banner').style.display='none';
+    currentPage=data.page;charOffset=data.charOffset||0;
+    renderPage();renderChapters();
+  };
+}
+function saveProgress(){localStorage.setItem(STORAGE_KEY,JSON.stringify({book:bookName,page:currentPage,charOffset:charOffset}));}
+
+/* ── RENDER ── */
+function renderPage(){
+  $('page-text').textContent=pages[currentPage]||'';
+  $('page-input').value=currentPage+1;
+  $('text-area').scrollTop=0;
+  updateProgress();updateBookmarkBtn();
+}
+
+function getGlobalChar(){
+  let g=0;for(let i=0;i<currentPage;i++) g+=charsPerPage[i]||0;
+  return g+charOffset;
+}
+function updateProgress(){
+  const g=getGlobalChar();
+  const pct=totalChars?g/totalChars*100:0;
+  $('progress-fill').style.width=pct+'%';
+  const estSec=totalChars/(150*speed/60);
+  $('time-current').textContent=formatTime(estSec*pct/100);
+  $('time-total').textContent=formatTime(estSec);
+}
+function formatTime(s){
+  s=Math.max(0,Math.round(s));
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  return h>0?h+':'+pad(m)+':'+pad(sec):m+':'+pad(sec);
+}
+function pad(n){return String(n).padStart(2,'0')}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ── PROGRESS CLICK ── */
+$('progress-bar').addEventListener('click',e=>{
+  const rect=e.currentTarget.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  const target=Math.round(totalChars*pct);
+  let cum=0;
+  for(let i=0;i<pages.length;i++){
+    if(cum+(charsPerPage[i]||0)>=target){currentPage=i;charOffset=target-cum;break;}
+    cum+=charsPerPage[i]||0;
+  }
+  renderPage();renderChapters();
+  if(isPlaying) restartFromCurrentChar();
+});
+
+/* ── SPEECH ── */
+function speak(){
+  if(!pages.length) return;
+  const txt=pages[currentPage]||'';
+  const remaining=txt.slice(charOffset);
+  if(!remaining.trim()){
+    if(currentPage<pages.length-1){currentPage++;charOffset=0;renderPage();renderChapters();speak();}
+    else setPlayState(false);
+    return;
+  }
+  uttStartChar=charOffset;
+  utter=new SpeechSynthesisUtterance(remaining);
+  utter.rate=speed;
+  if(selectedVoice) utter.voice=selectedVoice;
+  else if(voices.length) utter.voice=voices[0];
+  utter.onboundary=e=>{
+    if(e.name==='word'){
+      charOffset=uttStartChar+e.charIndex;
+      highlightWord(charOffset,e.charLength||5);
+      updateProgress();saveProgress();
+    }
+  };
+  utter.onend=()=>{
+    if(isPaused) return;
+    if(currentPage<pages.length-1){currentPage++;charOffset=0;renderPage();renderChapters();speak();}
+    else{setPlayState(false);charOffset=0;saveProgress();}
+  };
+  synth.speak(utter);
+}
+function highlightWord(start,len){
+  const full=pages[currentPage]||'';
+  const el=$('page-text');
+  el.innerHTML='<span>'+escH(full.slice(0,start))+'</span>'+
+    '<span class="highlight">'+escH(full.slice(start,start+len))+'</span>'+
+    '<span>'+escH(full.slice(start+len))+'</span>';
+  const hl=el.querySelector('.highlight');
+  if(hl) hl.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function stopSpeech(){synth.cancel();utter=null;}
+function setPlayState(p){isPlaying=p;$('play-icon').className=p?'ti ti-player-pause':'ti ti-player-play';}
+function restartFromCurrentChar(){synth.cancel();setTimeout(()=>{if(isPlaying)speak();},80);}
+
+$('play-btn').addEventListener('click',()=>{
+  if(isPlaying){synth.cancel();isPaused=true;setPlayState(false);saveProgress();}
+  else{isPaused=false;setPlayState(true);speak();}
+});
+$('skip-back-btn').addEventListener('click',()=>{
+  charOffset=Math.max(0,charOffset-Math.round(15*(150/60)*speed));
+  if(isPlaying) restartFromCurrentChar(); else updateProgress();
+});
+$('skip-fwd-btn').addEventListener('click',()=>{
+  charOffset=Math.min((pages[currentPage]||'').length-1,charOffset+Math.round(15*(150/60)*speed));
+  if(isPlaying) restartFromCurrentChar(); else updateProgress();
+});
+const speeds=[0.75,1,1.25,1.5,2];let speedIdx=1;
+$('speed-btn').addEventListener('click',()=>{
+  speedIdx=(speedIdx+1)%speeds.length;speed=speeds[speedIdx];
+  $('speed-btn').textContent=speed+'×';
+  if(isPlaying) restartFromCurrentChar();
+});
+$('prev-page').addEventListener('click',()=>{
+  if(currentPage>0){currentPage--;charOffset=0;renderPage();renderChapters();if(isPlaying) restartFromCurrentChar();}
+});
+$('next-page').addEventListener('click',()=>{
+  if(currentPage<pages.length-1){currentPage++;charOffset=0;renderPage();renderChapters();if(isPlaying) restartFromCurrentChar();}
+});
+$('page-input').addEventListener('change',e=>{
+  const p=Math.max(1,Math.min(pages.length,+e.target.value))-1;
+  currentPage=p;charOffset=0;renderPage();renderChapters();
+  if(isPlaying) restartFromCurrentChar();
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/audiobook-reader/sw.js'));
+}
+</script>
+</body>
+</html>
